@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rufus-scheduler'
 require 'json'
 
@@ -5,27 +7,32 @@ scheduler = Rufus::Scheduler.new
 
 def check_hen_scraper(name)
   command = `hen scraper stats #{name}`
-  return JSON.parse(command)
+  JSON.parse(command)
 end
 
 def resume(name)
   command = `hen scraper job resume #{name}`
-  return JSON.parse(command)
+  JSON.parse(command)
 end
 
 def refetch(name)
   command = `hen scraper page refetch #{name} --fetch-fail`
-  return JSON.parse(command)
+  JSON.parse(command)
+end
+
+def refetch_parse(name)
+  command = `hen scraper page refetch #{name} --parse-fail`
+  JSON.parse(command)
 end
 
 def reparse(name)
   command = `hen scraper page reparse #{name} --parse-fail`
-  return JSON.parse(command)
+  JSON.parse(command)
 end
 
 def reparse_on_failed(name)
   command = `hen scraper page reparse #{name} --status refetch_failed`
-  return JSON.parse(command)
+  JSON.parse(command)
 end
 
 # Define the input argument
@@ -37,8 +44,7 @@ puts condition
 
 scheduler.every time do
   result = check_hen_scraper(name)
-  puts "----------------------------------------"
-  puts "#{result['scraper_name']}"
+  puts(result['scraper_name'])
   puts "job_id: #{result['job_id']}"
   puts "job_status: #{result['job_status']}"
   puts "to_fetch: #{result['to_fetch']}"
@@ -48,7 +54,8 @@ scheduler.every time do
   puts "refetch_failed: #{result['refetch_failed']}"
   puts "limbo: #{result['limbo']}"
   puts "outputs: #{result['outputs']}"
-  puts "time_stamp: #{result['time_stamp']}\n"
+  puts "time_stamp: #{result['time_stamp']}"
+  puts '----------------------------------------'
 
   if result['job_status'] == 'paused' && (result['fetching_failed']).positive?
     refetch = refetch(name)
@@ -69,6 +76,11 @@ scheduler.every time do
     if condition.nil?
       refetch = refetch(name)
       puts "Refetch status: #{refetch}"
+    end
+  elsif (result['parsing_failed']).positive?
+    unless condition.nil?
+      refetch_parse = refetch_parse(name)
+      puts "Refetch status: #{refetch_parse}"
     end
   elsif result['job_status'] == 'done'
     puts `Scraper done at: #{result['time_stamp']}`
