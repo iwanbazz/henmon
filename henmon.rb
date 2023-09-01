@@ -6,7 +6,7 @@ require 'json'
 scheduler = Rufus::Scheduler.new
 
 def check_hen_scraper(name)
-  command = `hen scraper stats #{name}`
+  command = `hen scraper stats #{name} --live`
   JSON.parse(command)
 end
 
@@ -39,9 +39,10 @@ end
 name = ARGV[0]
 time = ARGV[1]
 condition = ARGV[2]
+job_status = 'active'
 if name.nil?
-  puts "usage: henmon scraper_name time_to_watch"
-  puts "example: henmon spydeals_nl 15m"
+  puts 'usage: henmon scraper_name time_to_watch'
+  puts 'example: henmon spydeals_nl 15m'
 else
   puts "monitoring #{name} scraper starting every #{time}"
   puts condition
@@ -86,11 +87,16 @@ else
         puts "Refetch status: #{refetch_parse}"
       end
     elsif result['job_status'] == 'done'
+      job_status = result['job_status']
       puts `Scraper done at: #{result['time_stamp']}`
       scheduler.shutdown
     end
   end
 
-  # Keep the script running
-  scheduler.join
+  if job_status == 'done'
+    scheduler.shutdown
+  else
+    # Keep the script running
+    scheduler.join
+  end
 end
