@@ -15,6 +15,11 @@ def new_run(name)
   JSON.parse(command)
 end
 
+def pause(name)
+  command = `hen scraper job pause #{name}`
+  JSON.parse(command)
+end
+
 def resume(name)
   command = `hen scraper job resume #{name}`
   JSON.parse(command)
@@ -75,7 +80,11 @@ elsif condition == 'false'
 end
 
 puts "monitoring #{name} scraper starting every #{time}"
-scheduler.every time do
+
+index = {}
+count = 0
+
+scheduler.every time do |job|
   result = check_hen_scraper(name)
   puts(result['scraper_name'])
   puts "job_id: #{result['job_id']}"
@@ -87,8 +96,11 @@ scheduler.every time do
   puts "refetch_failed: #{result['refetch_failed']}"
   puts "limbo: #{result['limbo']}"
   puts "outputs: #{result['outputs']}"
+  puts "count: #{count}"
   puts "time_stamp: #{result['time_stamp']}"
   puts '----------------------------------------'
+
+  index[count+=1] = result['outputs']
 
   if result['job_status'] == 'paused' && (result['fetching_failed']).positive?
     refetch = refetch(name)
@@ -121,37 +133,43 @@ scheduler.every time do
       puts "Refetch status: #{refetch}"
       puts '----------------------------------------'
     end
-  elsif (result['parsing_failed']).positive?
-    unless condition.nil?
-      refetch_parse = refetch_parse(name)
-      puts "Refetch status: #{refetch_parse}"
-      puts '----------------------------------------'
-    end
+  # elsif (result['parsing_failed']).positive?
+  #   unless condition.nil?
+  #     refetch_parse = refetch_parse(name)
+  #     puts "Refetch status: #{refetch_parse}"
+  #     puts '----------------------------------------'
+  #   end
   elsif result['job_status'] == 'done'
     if action.nil?
       job_status = result['job_status']
       puts `Scraper done at: #{result['time_stamp']}`
       puts '----------------------------------------'
-      scheduler.shutdown
-      scheduler.unjoin
+      job.unschedule
       abort
       exit
+      finish
     else
       start = new_run(name)
       puts "New run status: #{start}"
       puts '----------------------------------------'
     end
   end
+
+  if index[count] != 0 && index[count-5] == index[count]
+    pause_start = pause(name)
+    puts "Pause to avoid stuck: #{pause_start}"
+    puts '----------------------------------------'
+    count = 0
+  end
 end
 
-if job_status == 'done'
+if job_status == 'active'
+  # Keep the script running
+  scheduler.join
+else
   if action.nil?
-    scheduler.shutdown
     scheduler.unjoin
     abort
     exit
   end
-else
-  # Keep the script running
-  scheduler.join
 end
