@@ -80,6 +80,9 @@ elsif condition == 'false'
 end
 
 puts "monitoring #{name} scraper starting every #{time}"
+if action.nil?
+  puts "no action set, action allowed: `restart` to rerun scraper when it is done, `unstuck` to check scraper stuck will do pause resume"
+end
 
 index = {}
 count = 0
@@ -90,6 +93,7 @@ scheduler.every time do |job|
   puts "job_id: #{result['job_id']}"
   puts "job_status: #{result['job_status']}"
   puts "to_fetch: #{result['to_fetch']}"
+  puts "to_parse: #{result['to_parse']}"
   puts "pages: #{result['pages']}"
   puts "fetching_failed: #{result['fetching_failed']}"
   puts "parsing_failed: #{result['parsing_failed']}"
@@ -148,18 +152,21 @@ scheduler.every time do |job|
       abort
       exit
       finish
-    else
+    elsif action == 'restart'
       start = new_run(name)
       puts "New run status: #{start}"
       puts '----------------------------------------'
     end
   end
 
-  if index[count] != 0 && index[count-5] == index[count]
-    pause_start = pause(name)
-    puts "Pause to avoid stuck: #{pause_start}"
-    puts '----------------------------------------'
-    count = 0
+  unless result['to_fetch'] == 0
+    if action == 'unstuck' && index[count-10] == index[count] && index[count-5] == index[count]
+      pause_start = pause(name)
+      puts "Pause to avoid stuck: #{pause_start}"
+      puts '----------------------------------------'
+      puts pause_start['status']
+      count = 0
+    end
   end
 end
 
@@ -167,9 +174,7 @@ if job_status == 'active'
   # Keep the script running
   scheduler.join
 else
-  if action.nil?
-    scheduler.unjoin
-    abort
-    exit
-  end
+  scheduler.unjoin
+  abort
+  exit
 end
