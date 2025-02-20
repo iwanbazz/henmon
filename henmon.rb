@@ -7,7 +7,10 @@ scheduler = Rufus::Scheduler.new
 
 def check_hen_scraper(name)
   command = `hen scraper stats #{name} --live`
-  JSON.parse(command)
+  result = JSON.parse(command)
+  keys_to_delete = ["seeding_status", "fetching_dequeue_failed", "parsing_dequeue_failed", "fetched_from_web", "fetched_from_cache", "fetcher_workers", "parser_workers", "browser_workers"]
+  keys_to_delete.each {|key| result.delete(key)}
+  result
 end
 
 def new_run(name)
@@ -89,20 +92,22 @@ count = 0
 
 scheduler.every time do |job|
   result = check_hen_scraper(name)
-  puts(result['scraper_name'])
-  puts "job_id: #{result['job_id']}"
-  puts "job_status: #{result['job_status']}"
-  puts "to_fetch: #{result['to_fetch']}"
-  puts "to_parse: #{result['to_parse']}"
-  puts "pages: #{result['pages']}"
-  puts "fetching_failed: #{result['fetching_failed']}"
-  puts "parsing_failed: #{result['parsing_failed']}"
-  puts "refetch_failed: #{result['refetch_failed']}"
-  puts "limbo: #{result['limbo']}"
-  puts "outputs: #{result['outputs']}"
-  puts "count: #{count}"
-  puts "time_stamp: #{result['time_stamp']}"
-  puts '----------------------------------------'
+  # puts(result['scraper_name'])
+  # puts "job_id: #{result['job_id']}"
+  # puts "job_status: #{result['job_status']}"
+  # puts "to_fetch: #{result['to_fetch']}"
+  # puts "to_parse: #{result['to_parse']}"
+  # puts "pages: #{result['pages']}"
+  # puts "fetching_failed: #{result['fetching_failed']}"
+  # puts "parsing_failed: #{result['parsing_failed']}"
+  # puts "refetch_failed: #{result['refetch_failed']}"
+  # puts "limbo: #{result['limbo']}"
+  # puts "outputs: #{result['outputs']}"
+  # puts "count: #{count}"
+  # puts "time_stamp: #{result['time_stamp']}"
+  # puts '----------------------------------------'
+
+  puts JSON.pretty_generate(result.merge({"count" => count}))
 
   index[count+=1] = result['outputs']
 
@@ -150,8 +155,6 @@ scheduler.every time do |job|
       puts '----------------------------------------'
       job.unschedule
       abort
-      exit
-      finish
     elsif action == 'restart'
       start = new_run(name)
       puts "New run status: #{start}"
@@ -176,5 +179,5 @@ if job_status == 'active'
 else
   scheduler.unjoin
   abort
-  exit
 end
+exit
